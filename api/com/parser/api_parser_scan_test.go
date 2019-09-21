@@ -6,6 +6,19 @@ import (
 	"testing"
 )
 
+func TestParseApis(t *testing.T) {
+	p, a, err := ParseApis(
+		"/data/apps/go/srv/api",
+		true,
+		false,
+		true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(p)
+	fmt.Println(a)
+}
+
 func TestRegExp(t *testing.T) {
 	docReg, err := regexp.Compile(`(?si:@api_doc_start(.*?)@api_doc_end)`)
 	if nil != err {

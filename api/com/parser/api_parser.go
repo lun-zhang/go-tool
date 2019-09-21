@@ -5,7 +5,6 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 
-	"github.com/haozzzzzzzz/go-rapid-development/api/request"
 	"github.com/haozzzzzzzz/go-rapid-development/utils/file"
 	"github.com/haozzzzzzzz/go-rapid-development/utils/uerrors"
 	"github.com/haozzzzzzzz/go-tool/api/com/project"
@@ -93,8 +92,8 @@ func (m *ApiParser) GenerateRoutersSourceFile(apis []*ApiItem) (err error) {
 		for _, uri := range apiItem.RelativePaths {
 			var str string
 			switch apiItem.HttpMethod {
-			case request.METHOD_ANY:
-				str = fmt.Sprintf("    engine.Any(\"%s\", %s)", uri, handleFuncName)
+			//case request.METHOD_ANY:
+			//	str = fmt.Sprintf("    engine.Any(\"%s\", %s)", uri, handleFuncName)
 			default:
 				str = fmt.Sprintf("    engine.Handle(\"%s\", \"%s\", %s)", apiItem.HttpMethod, uri, handleFuncName)
 			}

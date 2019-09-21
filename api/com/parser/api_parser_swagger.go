@@ -195,35 +195,35 @@ func (m *SwaggerSpec) parseApi(path string, api *ApiItem) (err error) {
 	case request.METHOD_PATCH:
 		pathItem.Patch = operation
 
-	case request.METHOD_ANY:
-		operationGet := *operation
-		operationGet.ID = fmt.Sprintf("%s-%s", request.METHOD_GET, path)
-
-		operationPost := *operation
-		operationPost.ID = fmt.Sprintf("%s-%s", request.METHOD_POST, path)
-
-		operationPut := *operation
-		operationPut.ID = fmt.Sprintf("%s-%s", request.METHOD_PUT, path)
-
-		operationDelete := *operation
-		operationDelete.ID = fmt.Sprintf("%s-%s", request.METHOD_DELETE, path)
-
-		operationOptions := *operation
-		operationOptions.ID = fmt.Sprintf("%s-%s", request.METHOD_OPTIONS, path)
-
-		operationHead := *operation
-		operationHead.ID = fmt.Sprintf("%s-%s", request.METHOD_HEAD, path)
-
-		operationPatch := *operation
-		operationPatch.ID = fmt.Sprintf("%s-%s", request.METHOD_PATCH, path)
-
-		pathItem.Get = &operationGet
-		pathItem.Post = &operationPost
-		pathItem.Put = &operationPut
-		pathItem.Delete = &operationDelete
-		pathItem.Options = &operationOptions
-		pathItem.Head = &operationHead
-		pathItem.Patch = &operationPatch
+	//case request.METHOD_ANY:
+	//	operationGet := *operation
+	//	operationGet.ID = fmt.Sprintf("%s-%s", request.METHOD_GET, path)
+	//
+	//	operationPost := *operation
+	//	operationPost.ID = fmt.Sprintf("%s-%s", request.METHOD_POST, path)
+	//
+	//	operationPut := *operation
+	//	operationPut.ID = fmt.Sprintf("%s-%s", request.METHOD_PUT, path)
+	//
+	//	operationDelete := *operation
+	//	operationDelete.ID = fmt.Sprintf("%s-%s", request.METHOD_DELETE, path)
+	//
+	//	operationOptions := *operation
+	//	operationOptions.ID = fmt.Sprintf("%s-%s", request.METHOD_OPTIONS, path)
+	//
+	//	operationHead := *operation
+	//	operationHead.ID = fmt.Sprintf("%s-%s", request.METHOD_HEAD, path)
+	//
+	//	operationPatch := *operation
+	//	operationPatch.ID = fmt.Sprintf("%s-%s", request.METHOD_PATCH, path)
+	//
+	//	pathItem.Get = &operationGet
+	//	pathItem.Post = &operationPost
+	//	pathItem.Put = &operationPut
+	//	pathItem.Delete = &operationDelete
+	//	pathItem.Options = &operationOptions
+	//	pathItem.Head = &operationHead
+	//	pathItem.Patch = &operationPatch
 
 	default:
 		logrus.Warnf("not supported method for swagger spec. method: %s", api.HttpMethod)

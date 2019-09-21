@@ -189,15 +189,15 @@ func ParsePkgApis(
 		}
 	}()
 
-	hasGoFile, err := file.DirHasExtFile(apiPackageDir, ".go")
-	if nil != err {
-		logrus.Errorf("check dir has ext file failed. error: %s.", err)
-		return
-	}
-
-	if !hasGoFile {
-		return
-	}
+	//hasGoFile, err := file.DirHasExtFile(apiPackageDir, ".go")
+	//if nil != err {
+	//	logrus.Errorf("check dir has ext file failed. error: %s.", err)
+	//	return
+	//}
+	//
+	//if !hasGoFile {
+	//	return
+	//}
 
 	goPaths := make([]string, 0)
 	var goModName, goModDir string
@@ -485,36 +485,12 @@ func ParsePkgApis(
 
 				fileApis = append(fileApis, apiItem)
 
-			case *ast.FuncDecl: // type HandlerFunc func(*Context)
+			case *ast.FuncDecl: // bind.Wrap包裹的函数，后续改成直接跳转而不是扫描
 				funcDecl := decl.(*ast.FuncDecl)
 
-				// 判断是否是gin.HandlerFunc
-				paramsList := funcDecl.Type.Params.List
-				if len(paramsList) != 1 || funcDecl.Type.Results != nil {
-					continue
-				}
-
-				paramField := paramsList[0]
-				startExpr, ok := paramField.Type.(*ast.StarExpr)
-				if !ok {
-					continue
-				}
-
-				selectExpr, ok := startExpr.X.(*ast.SelectorExpr)
-				if !ok || selectExpr.X == nil || selectExpr.Sel == nil {
-					continue
-				}
-
-				pkgIdent := selectExpr.X.(*ast.Ident)
-				objIdent := selectExpr.Sel
-
-				if !(pkgIdent.Name == "gin" && objIdent.Name == "Context") {
-					continue
-				}
-
-				err = ParseGinHandlerFuncApi(apiItem, funcDecl, typesInfo, parseRequestData)
+				err = ParseBindWrapFuncApi(apiItem, funcDecl, typesInfo, parseRequestData)
 				if nil != err {
-					logrus.Errorf("parse gin HandlerFunc failed. error: %s.", err)
+					logrus.Errorf("parse bind.Wrap failed. error: %s.", err)
 					return
 				}
 
@@ -639,8 +615,8 @@ func ParseGinbuilderHandleFuncApi(
 					request.METHOD_OPTIONS,
 					request.METHOD_DELETE,
 					request.METHOD_CONNECT,
-					request.METHOD_TRACE,
-					request.METHOD_ANY:
+					request.METHOD_TRACE:
+					//request.METHOD_ANY:
 
 				default:
 					err = errors.New(fmt.Sprintf("unsupported http method : %s", value))

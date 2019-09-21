@@ -178,6 +178,22 @@ type ApiItemParams struct {
 	RespData   IType       `json:"response_data" yaml:"response_data"`
 }
 
+func (m *ApiItemParams) SetReqData(filedName string, structType *StructType) {
+	switch filedName {
+	case "Body":
+		m.PostData = structType
+	case "Query":
+		m.QueryData = structType
+	case "Header":
+		m.HeaderData = structType
+	case "Uri":
+		m.UriData = structType
+	case "Meta":
+	default:
+		panic(fmt.Errorf("invalid field name:%s", filedName))
+	}
+}
+
 func NewApiItemParams() *ApiItemParams {
 	return &ApiItemParams{
 		HeaderData: NewStructType(),
