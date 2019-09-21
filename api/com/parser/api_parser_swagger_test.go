@@ -66,3 +66,37 @@ func TestSaveApisSwaggerSpec(t *testing.T) {
 
 	fmt.Println(string(out))
 }
+
+func TestSaveApisSwaggerSpec2(t *testing.T) {
+	_, a, err := ParseApis(
+		"/data/apps/go/srv/api",
+		true,
+		false,
+		true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(a[0])
+
+	swgSpc := NewSwaggerSpec()
+	swgSpc.Apis(nil, a)
+	swgSpc.Info(
+		"Book shop",
+		"book shop api for testing tools",
+		"1",
+		"haozzzzzzzz",
+	)
+	err = swgSpc.ParseApis()
+	if nil != err {
+		t.Error(err)
+		return
+	}
+
+	out, err := swgSpc.Output()
+	if nil != err {
+		t.Error(err)
+		return
+	}
+
+	fmt.Println(string(out))
+}
