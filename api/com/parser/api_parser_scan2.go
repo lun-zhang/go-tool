@@ -82,9 +82,9 @@ func parseReqType(
 		if field.Name() == "Meta" {
 			continue
 		}
-		var iType IType
-		parseType2(typesInfo, field.Type(), &iType)
-		structType, ok := iType.(*StructType)
+		var myType MyType
+		parseType2(typesInfo, field.Type(), &myType)
+		structType, ok := myType.IType.(*StructType)
 		if !ok {
 			panic("req.Xxx 目前只能是 struct，后期会允许Body不是struct")
 		}
@@ -100,9 +100,9 @@ func parseRespType(
 		return
 	}
 
-	var iType IType
-	parseType2(typesInfo, respType, &iType)
-	structType, ok := iType.(*StructType)
+	var myType MyType
+	parseType2(typesInfo, respType, &myType)
+	structType, ok := myType.IType.(*StructType)
 	if !ok {
 		panic(fmt.Errorf("resp %s 目前只能是 struct，后期会允许不是struct", respType))
 	}
@@ -150,25 +150,42 @@ func checkOut(results *types.Tuple) (respType types.Type, ok bool) {
 	}
 }
 
+type MyType struct {
+	IType IType
+}
+
+func (m *MyType) AddFields(f *Field) (err error) {
+	var structType *StructType
+	if m.IType == nil {
+		structType = NewStructType()
+	} else {
+		structType = m.IType.(*StructType)
+	}
+	if err = structType.AddFields(f); err != nil {
+		return
+	}
+	m.IType = structType
+	return
+}
+
 //TODO map保存解析过的，不需要重复解析浪费时间
 func parseType2(
 	info *types.Info,
 	t types.Type,
-	iType *IType,
+	myType *MyType,
 ) {
 	switch t := t.(type) {
 	case *types.Basic:
 		fmt.Println("Basic: ", t)
-		*iType = NewBasicType(t.Name())
+		myType.IType = NewBasicType(t.Name())
 	case *types.Pointer:
 		fmt.Println("Pointer: ", t)
-		parseType2(info, t.Elem(), iType)
+		parseType2(info, t.Elem(), myType)
 	case *types.Named: //这是具名结构体，Underlying为types.Struct才能解析其成员
 		fmt.Println("Named: ", t)
-		parseType2(info, t.Underlying(), iType)
+		parseType2(info, t.Underlying(), myType)
 	case *types.Struct: // 匿名
 		fmt.Println("Struct: ", t)
-		structType := NewStructType()
 		typeAstExpr := FindStructAstExprFromInfoTypes(info, t)
 		if typeAstExpr == nil { // 找不到expr
 			hasFieldsJsonTag := false
@@ -239,7 +256,8 @@ func parseType2(
 			}
 
 			if tField.Anonymous() {
-
+				parseType2(info, tField.Type(), myType)
+				continue
 			}
 
 			// tags
@@ -247,12 +265,13 @@ func parseType2(
 
 			// definition
 			field.Name = tField.Name()
-			var fieldType IType
-			parseType2(info, tField.Type(), &fieldType)
-			field.TypeName = fieldType.TypeName()
-			field.TypeSpec = fieldType
+			var fieldType MyType
 
-			err := structType.AddFields(field)
+			parseType2(info, tField.Type(), &fieldType)
+			field.TypeName = fieldType.IType.TypeName()
+			field.TypeSpec = fieldType.IType
+
+			err := myType.AddFields(field)
 			if nil != err {
 				logrus.Warnf("parse struct type add field failed. error: %s.", err)
 				return
@@ -260,32 +279,30 @@ func parseType2(
 
 		}
 
-		*iType = structType
-
 	case *types.Slice:
 		arrType := NewArrayType()
-		var eltType IType
+		var eltType MyType
 		parseType2(info, t.Elem(), &eltType)
-		arrType.EltSpec = eltType
-		arrType.EltName = eltType.TypeName()
-		arrType.Name = fmt.Sprintf("[]%s", eltType.TypeName())
+		arrType.EltSpec = eltType.IType
+		arrType.EltName = eltType.IType.TypeName()
+		arrType.Name = fmt.Sprintf("[]%s", eltType.IType.TypeName())
 
-		*iType = arrType
+		myType.IType = arrType
 
 	case *types.Map:
 		mapType := NewMapType()
-		var value IType
+		var value MyType
 		parseType2(info, t.Elem(), &value)
-		mapType.ValueSpec = value
-		var key IType
+		mapType.ValueSpec = value.IType
+		var key MyType
 		parseType2(info, t.Key(), &key)
-		mapType.KeySpec = key
+		mapType.KeySpec = key.IType
 		mapType.Name = fmt.Sprintf("map[%s]%s", mapType.KeySpec.TypeName(), mapType.ValueSpec.TypeName())
 
-		*iType = mapType
+		myType.IType = mapType
 
 	case *types.Interface:
-		*iType = NewInterfaceType()
+		myType.IType = NewInterfaceType()
 
 	default:
 		logrus.Warnf("parse unsupported type %#v", t)
