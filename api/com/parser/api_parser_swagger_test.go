@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 )
@@ -92,7 +93,7 @@ func TestSaveApisSwaggerSpec2(t *testing.T) {
 		return
 	}
 
-	out, err := swgSpc.Output()
+	out, err := json.Marshal(swgSpc.Swagger)
 	if nil != err {
 		t.Error(err)
 		return
