@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"go/ast"
 	"go/types"
@@ -15,124 +16,190 @@ func ParseBindWrapFuncApi(
 	apiItem.ApiHandlerFunc = funcDecl.Name.Name
 	apiItem.ApiHandlerFuncType = ApiHandlerFuncTypeGinHandlerFunc
 
-	// 读取注释
-	if funcDecl.Doc != nil {
-		apiComment := funcDecl.Doc.Text()
-		commentTags, errParse := ParseCommentTags(apiComment)
-		err = errParse
-		if nil != err {
-			logrus.Errorf("parse api comment tags failed. error: %s.", err)
-			return
-		}
-
-		if commentTags != nil {
-			apiItem.MergeInfoFomCommentTags(commentTags)
-		}
+	if !checkInAst(funcDecl.Type.Params) {
+		return
 	}
+	if !checkOutAst(funcDecl.Type.Results) {
+		return
+	}
+
+	// 读取注释
+	if funcDecl.Doc == nil {
+		return
+	}
+	apiComment := funcDecl.Doc.Text()
+	commentTags, err := ParseCommentTags(apiComment)
+	if nil != err {
+		logrus.Errorf("parse api comment tags failed. error: %s.", err)
+		return
+	}
+
+	if commentTags == nil {
+		return
+	}
+	//没正确注释的不解析
+	if commentTags.Summary == "" ||
+		commentTags.LineTagDocHttpMethod == "" ||
+		len(commentTags.LineTagDocRelativePaths) == 0 {
+		return
+	}
+	apiItem.MergeInfoFomCommentTags(commentTags)
 
 	if !parseRequestData {
 		return
 	}
 
+	fmt.Println("parse func: ", funcDecl.Name)
 	// parse request data
-	parseBindWrapFunc(apiItem, typesInfo)
+	parseBindWrapFunc(apiItem, funcDecl.Type, typesInfo)
 
 	return
 
 }
 func parseBindWrapFunc(
 	apiItem *ApiItem,
+	funcType *ast.FuncType,
 	typesInfo *types.Info,
 ) {
 
-	for _, obj := range typesInfo.Defs {
-		if obj == nil {
-			continue
-		}
-		function, ok := obj.Type().(*types.Signature)
-		if !ok {
-			continue
-		}
-		reqType, ok := checkIn(function.Params())
-		if !ok {
-			continue
-		}
-		respType, ok := checkOut(function.Results())
-		if !ok {
-			continue
-		}
-		//fmt.Println(obj.Pkg())
-		parseReqType(apiItem, typesInfo, reqType)
-		parseRespType(apiItem, typesInfo, respType)
-	}
+	parseReqType(apiItem, typesInfo, funcType.Params)
+	parseRespType(apiItem, typesInfo, funcType.Results)
 	return
 }
 
 func parseReqType(
 	apiItem *ApiItem,
 	typesInfo *types.Info,
-	reqType *types.Struct) {
-	if reqType == nil {
+	params *ast.FieldList) {
+	if params == nil {
 		return
 	}
-	for i := 0; i < reqType.NumFields(); i++ {
-		field := reqType.Field(i)
+	n := len(params.List)
+	if n == 1 {
+		return
+	}
+	reqType := params.List[1].Type.(*ast.StructType)
 
-		if field.Name() == "Meta" {
-			continue
-		}
-		iType := parseType(typesInfo, field.Type())
-		apiItem.SetReqData(field.Name(), iType)
+	for i := 0; i < len(reqType.Fields.List); i++ {
+		field := reqType.Fields.List[i]
+		expr := field.Type
+
+		//identType := typesInfo.Defs[]
+		//typeVar:= identType.(*types.Var)
+		iType := parseType(typesInfo, typesInfo.Types[expr].Type)
+		apiItem.SetReqData(field.Names[0].Name, iType)
 	}
 }
+
 func parseRespType(
 	apiItem *ApiItem,
 	typesInfo *types.Info,
-	respType types.Type) {
-	if respType == nil {
+	results *ast.FieldList) {
+	if results == nil {
 		return
 	}
-
-	iType := parseType(typesInfo, respType)
+	var respType ast.Expr
+	switch len(results.List) {
+	case 1:
+		out0Type := results.List[0].Type
+		if exprIsErrorType(out0Type) {
+			return
+		}
+		respType = out0Type
+	case 2:
+		respType = results.List[0].Type
+	default:
+		return
+	}
+	iType := parseType(typesInfo, typesInfo.Types[respType].Type)
 	apiItem.RespData = iType
 }
 
-func checkIn(params *types.Tuple) (reqType *types.Struct, ok bool) {
-	if params.Len() <= 0 || params.Len() > 2 {
-		return nil, false
+func checkInAst(params *ast.FieldList) bool {
+	if params == nil {
+		return false
 	}
-	ctxType := params.At(0)
-	if ctxType.Type().String() != "context.Context" {
-		return nil, false
+	n := len(params.List)
+
+	if n <= 0 || n > 2 {
+		return false
 	}
-	if params.Len() == 1 {
-		return nil, true
+
+	{ //第一个参数必须是context.Context类型
+		ctxType, ok := params.List[0].Type.(*ast.SelectorExpr)
+		if !ok {
+			return false
+		}
+		c, ok := ctxType.X.(*ast.Ident)
+		if !ok {
+			return false
+		}
+		if c.Name != "context" || ctxType.Sel.Name != "Context" {
+			return false
+		}
 	}
-	reqType, ok = params.At(1).Type().(*types.Struct)
-	return
+	if n == 2 {
+		req, ok := parseAstTypeToStruct(params.List[1].Type)
+		if !ok {
+			return false
+		}
+		for i := 0; i < len(req.Fields.List); i++ {
+			field := req.Fields.List[i]
+			switch field.Names[0].Name {
+			case "Body":
+			case "Query":
+			case "Header":
+			case "Uri":
+			case "Meta":
+			default: //包含不能识别的类型
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
-func checkOut(results *types.Tuple) (respType types.Type, ok bool) {
-	switch results.Len() {
+
+func checkOutAst(results *ast.FieldList) bool {
+	if results == nil {
+		return true
+	}
+	switch len(results.List) {
 	case 0:
-		return nil, true
-	case 1: //resp or err
-		out0Type := results.At(0).Type()
-		if out0Type.String() == "error" {
-			return nil, true
-		}
-		if results.At(0).Name() != "resp" {
-			return nil, false
-		}
-		return out0Type, true
+		return true
+	case 1:
+		return true
 	case 2:
-		if results.At(0).Name() != "resp" {
-			return nil, false
+		errType := results.List[1].Type
+		if !exprIsErrorType(errType) {
+			return false
 		}
-		errType := results.At(1)
-		if errType.Type().String() != "error" {
-			return nil, false
-		}
-		return results.At(0).Type(), true
+		return true
+	default:
+		return false
+	}
+}
+
+func exprIsErrorType(expr ast.Expr) bool {
+	i, ok := expr.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	if i.Name != "error" {
+		return false
+	}
+	return true
+}
+
+func parseAstTypeToStruct(t ast.Expr) (*ast.StructType, bool) {
+	if t == nil {
+		return nil, false
+	}
+	switch t := t.(type) {
+	case *ast.StructType:
+		return t, true
+	case *ast.Ident:
+		return parseAstTypeToStruct(t.Obj.Decl.(*ast.TypeSpec).Type)
 	default:
 		return nil, false
 	}

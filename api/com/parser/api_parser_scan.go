@@ -460,69 +460,18 @@ func ParsePkgApis(
 				RelativePaths: make([]string, 0),
 			}
 
-			switch decl.(type) {
-			case *ast.GenDecl: // var xx = yy
-				genDel, ok := decl.(*ast.GenDecl)
-				if !ok {
-					continue
-				}
-
-				if len(genDel.Specs) == 0 {
-					return
-				}
-
-				valueSpec, ok := genDel.Specs[0].(*ast.ValueSpec)
-				if !ok {
-					continue
-				}
-
-				obj := valueSpec.Names[0] // variables with name
-				selectorExpr, ok := valueSpec.Type.(*ast.SelectorExpr)
-				if !ok {
-					continue
-				}
-
-				xIdent, ok := selectorExpr.X.(*ast.Ident)
-				if !ok {
-					continue
-				}
-
-				selIdent := selectorExpr.Sel
-
-				if !(xIdent.Name == "ginbuilder" && selIdent.Name == "HandleFunc") {
-					continue
-				}
-
-				err = ParseGinbuilderHandleFuncApi(
-					apiItem,
-					genDel,
-					valueSpec,
-					obj,
-					typesInfo,
-					parseRequestData,
-				)
-				if nil != err {
-					logrus.Errorf("parse ginbuild handle func api failed. error: %s.", err)
-					return
-				}
-
-				fileApis = append(fileApis, apiItem)
-
-			case *ast.FuncDecl: // bind.Wrap包裹的函数，后续改成直接跳转而不是扫描
-				funcDecl := decl.(*ast.FuncDecl)
-
-				err = ParseBindWrapFuncApi(apiItem, funcDecl, typesInfo, parseRequestData)
-				if nil != err {
-					logrus.Errorf("parse bind.Wrap failed. error: %s.", err)
-					return
-				}
-
-				fileApis = append(fileApis, apiItem)
-
-			default:
+			funcDecl, ok := decl.(*ast.FuncDecl)
+			if !ok {
 				continue
-
 			}
+
+			err = ParseBindWrapFuncApi(apiItem, funcDecl, typesInfo, parseRequestData)
+			if nil != err {
+				logrus.Errorf("parse gin HandlerFunc failed. error: %s.", err)
+				return
+			}
+
+			fileApis = append(fileApis, apiItem)
 
 		}
 

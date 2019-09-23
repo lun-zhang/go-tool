@@ -8,7 +8,7 @@ import (
 
 func TestParseApis(t *testing.T) {
 	p, a, err := ParseApis(
-		"/data/apps/go/srv/api",
+		"/data/apps/go/guess_activity/biz",
 		true,
 		false,
 		true)

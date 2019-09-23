@@ -215,6 +215,8 @@ func (m *ApiItemParams) SetReqData(filedName string, iType IType) {
 	case "Body":
 		m.PostData = iType
 		return
+	case "Meta":
+		return
 	}
 
 	structType, ok := iType.(*StructType)
@@ -228,7 +230,7 @@ func (m *ApiItemParams) SetReqData(filedName string, iType IType) {
 		m.HeaderData = structType
 	case "Uri":
 		m.UriData = structType
-	case "Meta":
+
 	default:
 		panic(fmt.Errorf("invalid field name:%s", filedName))
 	}
