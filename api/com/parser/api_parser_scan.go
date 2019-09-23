@@ -844,7 +844,7 @@ func parseType(
 			field := NewField()
 
 			tField := tStructType.Field(i)
-			if !tField.Exported() {
+			if !tField.Exported() || parseStringTagParts(tStructType.Tag(i)) == nil {
 				continue
 			}
 
@@ -962,6 +962,9 @@ func parseStringTagParts(strTag string) (mParts map[string]string) {
 		}
 
 		tagPair := strings.Split(pair, ":")
+		if tagPair[0] == "json" && tagPair[1] == `"-"` {
+			return nil
+		}
 		mParts[tagPair[0]] = strings.Replace(tagPair[1], "\"", "", -1)
 	}
 	return
