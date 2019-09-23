@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"go/ast"
 	"go/types"
@@ -83,12 +82,7 @@ func parseReqType(
 			continue
 		}
 		iType := parseType(typesInfo, field.Type())
-		structType, ok := iType.(*StructType)
-		if !ok {
-			panic("req.Xxx 目前只能是 struct，后期会允许Body不是struct")
-		}
-		fmt.Println("structType: ", structType)
-		apiItem.SetReqData(field.Name(), structType)
+		apiItem.SetReqData(field.Name(), iType)
 	}
 }
 func parseRespType(
@@ -100,11 +94,7 @@ func parseRespType(
 	}
 
 	iType := parseType(typesInfo, respType)
-	structType, ok := iType.(*StructType)
-	if !ok {
-		panic(fmt.Errorf("resp %s 目前只能是 struct，后期会允许不是struct", respType))
-	}
-	apiItem.RespData = structType
+	apiItem.RespData = iType
 }
 
 func checkIn(params *types.Tuple) (reqType *types.Struct, ok bool) {

@@ -210,10 +210,18 @@ type ApiItemParams struct {
 	RespData   IType       `json:"response_data" yaml:"response_data"`
 }
 
-func (m *ApiItemParams) SetReqData(filedName string, structType *StructType) {
+func (m *ApiItemParams) SetReqData(filedName string, iType IType) {
 	switch filedName {
 	case "Body":
-		m.PostData = structType
+		m.PostData = iType
+		return
+	}
+
+	structType, ok := iType.(*StructType)
+	if !ok {
+		panic(fmt.Errorf("filedName:%s, iType:%s, req成员除了Body，其他成员都只能是结构体", filedName, iType))
+	}
+	switch filedName {
 	case "Query":
 		m.QueryData = structType
 	case "Header":

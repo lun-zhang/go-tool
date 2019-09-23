@@ -8,7 +8,7 @@ import (
 
 func TestSaveApisSwaggerSpec(t *testing.T) {
 	swgSpc := NewSwaggerSpec()
-	swgSpc.Apis(nil, []*ApiItem{
+	swgSpc.Apis([]*ApiItem{
 		{
 			ApiItemParams: ApiItemParams{
 				HeaderData: &StructType{
@@ -70,7 +70,7 @@ func TestSaveApisSwaggerSpec(t *testing.T) {
 
 func TestSaveApisSwaggerSpec2(t *testing.T) {
 	_, a, err := ParseApis(
-		"/data/apps/go/srv/api",
+		"/data/apps/go/guess_activity/api",
 		true,
 		false,
 		true)
@@ -80,7 +80,7 @@ func TestSaveApisSwaggerSpec2(t *testing.T) {
 	fmt.Println(a[0])
 
 	swgSpc := NewSwaggerSpec()
-	swgSpc.Apis(nil, a)
+	swgSpc.Apis(a)
 	swgSpc.Info(
 		"Book shop",
 		"book shop api for testing tools",
