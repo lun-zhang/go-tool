@@ -37,8 +37,6 @@ func (m *ApiParser) ScanApis(
 	apis []*ApiItem,
 	err error,
 ) {
-	apis = make([]*ApiItem, 0)
-
 	// scan api dir
 	apiDir, err := filepath.Abs(m.ApiDir)
 	if nil != err {
@@ -46,13 +44,36 @@ func (m *ApiParser) ScanApis(
 		return
 	}
 
-	commonApiParamsMap, codeApis, err := ParseApis(apiDir, parseRequestData, parseCommentText, usePackagesParse)
+	commonApiParamsMap, apis, err = ParseApis(apiDir, parseRequestData, parseCommentText, usePackagesParse)
 	if nil != err {
 		logrus.Errorf("parse apis from code failed. error: %s.", err)
 		return
 	}
 
-	apis = append(apis, codeApis...)
+	// merge common params
+	if parseRequestData && len(commonApiParamsMap) > 0 {
+		for _, api := range apis {
+			pkgDir := api.ApiFile.PackageDir
+			matchedCommonParams := make([]*ApiItemParams, 0)
+			for dir, commonParams := range commonApiParamsMap {
+				if strings.Contains(pkgDir, dir) {
+					matchedCommonParams = append(matchedCommonParams, commonParams)
+				}
+			}
+
+			if len(matchedCommonParams) == 0 {
+				continue
+			}
+
+			for _, commonParams := range matchedCommonParams {
+				err = api.ApiItemParams.MergeApiItemParams(commonParams)
+				if nil != err {
+					logrus.Errorf("api merge common params failed. %s", err)
+					return
+				}
+			}
+		}
+	}
 
 	// sort api
 	sortedApiUriKeys := make([]string, 0)
@@ -75,7 +96,9 @@ func (m *ApiParser) ScanApis(
 	for _, key := range sortedApiUriKeys {
 		sortedApis = append(sortedApis, mapApi[key])
 	}
+
 	apis = sortedApis
+
 	return
 }
 
@@ -787,12 +810,7 @@ func parseApiFuncBody(
 						continue
 					}
 
-					structType, ok := iType.(*StructType)
-					if ok {
-						apiItem.PostData = structType
-					} else {
-						logrus.Warnf("post data is not struct type")
-					}
+					apiItem.PostData = iType
 
 				case "respData":
 					iType := parseType(typesInfo, typeVar.Type())
@@ -945,10 +963,22 @@ func parseType(
 
 	case *types.Slice:
 		arrType := NewArrayType()
-		eltType := parseType(info, t.(*types.Slice).Elem())
+		typeSlice := t.(*types.Slice)
+		eltType := parseType(info, typeSlice.Elem())
 		arrType.EltSpec = eltType
 		arrType.EltName = eltType.TypeName()
 		arrType.Name = fmt.Sprintf("[]%s", eltType.TypeName())
+
+		iType = arrType
+
+	case *types.Array:
+		arrType := NewArrayType()
+		typeArr := t.(*types.Array)
+		eltType := parseType(info, typeArr.Elem())
+		arrType.Len = typeArr.Len()
+		arrType.EltSpec = eltType
+		arrType.EltName = eltType.TypeName()
+		arrType.Name = fmt.Sprintf("[%d]%s", arrType.Len, eltType.TypeName())
 
 		iType = arrType
 
