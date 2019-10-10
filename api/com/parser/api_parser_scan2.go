@@ -16,13 +16,6 @@ func ParseBindWrapFuncApi(
 	apiItem.ApiHandlerFunc = funcDecl.Name.Name
 	apiItem.ApiHandlerFuncType = ApiHandlerFuncTypeGinHandlerFunc
 
-	if !checkInAst(funcDecl.Type.Params) {
-		return
-	}
-	if !checkOutAst(funcDecl.Type.Results) {
-		return
-	}
-
 	// 读取注释
 	if funcDecl.Doc == nil {
 		return
@@ -51,6 +44,12 @@ func ParseBindWrapFuncApi(
 
 	fmt.Println("parse func: ", funcDecl.Name)
 	// parse request data
+	if !checkInAst(funcDecl.Type.Params) {
+		return
+	}
+	if !checkOutAst(funcDecl.Type.Results) {
+		return
+	}
 	parseBindWrapFunc(apiItem, funcDecl.Type, typesInfo)
 
 	return

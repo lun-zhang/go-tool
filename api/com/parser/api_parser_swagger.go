@@ -143,9 +143,10 @@ func (m *SwaggerSpec) parseApi(path string, api *ApiItem) (err error) {
 		},
 	}
 
-	pathItem := &spec.PathItem{}
+	//pathItem := &spec.PathItem{}
 
 	// https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#pathsObject
+	pathItem := m.Swagger.Paths.Paths[path]
 	switch api.HttpMethod {
 	case request.METHOD_GET:
 		pathItem.Get = operation
@@ -196,7 +197,7 @@ func (m *SwaggerSpec) parseApi(path string, api *ApiItem) (err error) {
 		logrus.Warnf("not supported method for swagger spec. method: %s", api.HttpMethod)
 	}
 
-	m.Swagger.PathsAdd(path, pathItem)
+	m.Swagger.Paths.Paths[path] = pathItem
 
 	return
 }
