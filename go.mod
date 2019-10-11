@@ -1,4 +1,4 @@
-module github.com/haozzzzzzzz/go-tool
+module github.com/lun-zhang/go-tool
 
 go 1.12
 
