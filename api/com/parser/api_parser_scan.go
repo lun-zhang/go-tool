@@ -108,10 +108,10 @@ func ParseApis(
 ) {
 	commonParamsMap = make(map[string]*ApiItemParams)
 	apis = make([]*ApiItem, 0)
-	logrus.Info("Scan api files ...")
+	fmt.Println("Scan api files ...")
 	defer func() {
 		if err == nil {
-			logrus.Info("Scan api files completed")
+			fmt.Println("Scan api files completed")
 		}
 	}()
 
