@@ -206,7 +206,9 @@ func mergeFromProjectPkg(
 
 	var dfs func(pkg *packages.Package)
 	dfs = func(pkg *packages.Package) {
-		if !strings.HasPrefix(pkg.PkgPath, projectName) {
+		if !strings.HasPrefix(pkg.PkgPath, projectName) &&
+			//TODO: 我自己的包里有些字段需要解析，应当改成过滤条件暴露出去
+			!strings.HasPrefix(pkg.PkgPath, "zlutils") {
 			return
 		}
 		if visPkg[pkg.PkgPath] {
