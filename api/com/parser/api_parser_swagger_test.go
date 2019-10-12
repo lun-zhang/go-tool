@@ -74,7 +74,6 @@ func TestSaveApisSwaggerSpec2(t *testing.T) {
 		//"/data/apps/go/guess_activity/biz",
 		"/data/apps/go/vclip_lottery",
 		true,
-		true,
 		true)
 	if err != nil {
 		t.Fatal(err)

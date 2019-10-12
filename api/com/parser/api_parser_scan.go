@@ -21,14 +21,12 @@ import (
 	"github.com/go-playground/validator"
 	"github.com/haozzzzzzzz/go-rapid-development/api/request"
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
 	"time"
 )
 
 func (m *ApiParser) ScanApis(
 	parseRequestData bool, // 如果parseRequestData会有点慢
 	parseCommentText bool, // 是否从注释中提取api。`compile`不能从注释中生成routers
-	usePackagesParse bool, // use Packages or Parser, gomod使用package，gopath使用parser
 ) (
 	commonApiParamsMap map[string]*ApiItemParams, // dir -> common params
 	apis []*ApiItem,
@@ -41,7 +39,7 @@ func (m *ApiParser) ScanApis(
 		return
 	}
 
-	commonApiParamsMap, apis, err = ParseApis(apiDir, parseRequestData, parseCommentText, usePackagesParse)
+	commonApiParamsMap, apis, err = ParseApis(apiDir, parseRequestData, parseCommentText)
 	if nil != err {
 		logrus.Errorf("parse apis from code failed. error: %s.", err)
 		return
@@ -99,40 +97,10 @@ func (m *ApiParser) ScanApis(
 	return
 }
 
-func findAllPkgDir(dir string, all *[]string) (err error) {
-	fs, err := ioutil.ReadDir(dir)
-	if err != nil {
-		panic(err)
-	}
-
-	ispkg := false
-	for _, f := range fs {
-		name := f.Name()
-		full := dir + "/" + name
-		if f.IsDir() {
-			if name[0] != '.' {
-				findAllPkgDir(full, all)
-			}
-		} else {
-			if strings.HasSuffix(full, ".go") {
-				if !strings.HasSuffix(full, "_test.go") {
-					ispkg = true
-					//*all = append(*all, full)
-				}
-			}
-		}
-	}
-	if ispkg {
-		*all = append(*all, dir)
-	}
-	return
-}
-
 func ParseApis(
 	projectDir string, //项目地址，扫描所有代码
 	parseRequestData bool, // 如果parseRequestData会有点慢
 	parseCommentText bool, // 是否从注释中提取api。`compile`不能从注释中生成routers
-	userPackageParse bool, // parseRequestData=true时，生效
 ) (
 	commonParamsMap map[string]*ApiItemParams, // file dir -> api item params
 	apis []*ApiItem,
@@ -147,85 +115,52 @@ func ParseApis(
 		}
 	}()
 
-	// api文件夹中所有的文件
-	subApiDir := make([]string, 0)
-	subApiDir = append(subApiDir, projectDir)
-	//if err = findAllPkgDir(projectDir, &subApiDir); err != nil {
-	//	return
-	//}
-
-	pkgsMap := map[string][]*packages.Package{}
-
-	type dirPkgs struct {
-		Dir  string
-		Pkgs []*packages.Package
+	fmt.Println("loading", projectDir)
+	now := time.Now()
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName |
+			packages.NeedFiles |
+			packages.NeedCompiledGoFiles |
+			packages.NeedImports |
+			packages.NeedDeps |
+			packages.NeedExportsFile |
+			packages.NeedTypes |
+			packages.NeedSyntax |
+			packages.NeedTypesInfo |
+			packages.NeedTypesSizes,
+		Dir:  projectDir,
+		Fset: token.NewFileSet(),
+	})
+	if err != nil {
+		panic(err)
 	}
-	dirPkgsCh := make(chan dirPkgs, len(subApiDir))
+	fmt.Println("load", projectDir, time.Now().Sub(now))
 
-	for _, subApiDir := range subApiDir {
-		func(dir string) {
-			fileSet := token.NewFileSet()
-			fmt.Println(dir)
-			now := time.Now()
-			pkgs, err := packages.Load(&packages.Config{
-				Mode: packages.NeedName |
-					packages.NeedFiles |
-					packages.NeedCompiledGoFiles |
-					packages.NeedImports |
-					packages.NeedDeps |
-					packages.NeedExportsFile |
-					packages.NeedTypes |
-					packages.NeedSyntax |
-					packages.NeedTypesInfo |
-					packages.NeedTypesSizes,
-				Dir:  dir,
-				Fset: fileSet,
-			})
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println("load", dir, time.Now().Sub(now))
-			dirPkgsCh <- dirPkgs{
-				Dir:  dir,
-				Pkgs: pkgs,
-			}
-		}(subApiDir)
-	}
-	for i := 0; i < len(subApiDir); i++ {
-		dirPkgs := <-dirPkgsCh
-		pkgsMap[dirPkgs.Dir] = dirPkgs.Pkgs
+	subCommonParamses, subApis, errParse := ParsePkgApis(
+		projectDir,
+		parseRequestData,
+		parseCommentText,
+		pkgs,
+	)
+	err = errParse
+	if nil != err {
+		logrus.Errorf("parse api file dir %q failed. error: %s.", projectDir, err)
+		return
 	}
 
-	// 服务源文件，只能一个pkg一个pkg地解析
-	for _, subApiDir := range subApiDir {
+	apis = append(apis, subApis...)
 
-		subCommonParamses, subApis, errParse := ParsePkgApis(
-			subApiDir,
-			parseRequestData,
-			parseCommentText,
-			pkgsMap[subApiDir],
-		)
-		err = errParse
-		if nil != err {
-			logrus.Errorf("parse api file dir %q failed. error: %s.", subApiDir, err)
-			return
-		}
-
-		apis = append(apis, subApis...)
-
-		for _, subCommonParams := range subCommonParamses {
-			_, ok := commonParamsMap[subApiDir]
-			if !ok {
-				commonParamsMap[subApiDir] = subCommonParams
-			} else {
-				err = commonParamsMap[subApiDir].MergeApiItemParams(subCommonParams)
-				if nil != err {
-					logrus.Errorf("merge api item common params failed. %#v", subCommonParams)
-				}
+	for _, subCommonParams := range subCommonParamses {
+		_, ok := commonParamsMap[projectDir]
+		if !ok {
+			commonParamsMap[projectDir] = subCommonParams
+		} else {
+			err = commonParamsMap[projectDir].MergeApiItemParams(subCommonParams)
+			if nil != err {
+				logrus.Errorf("merge api item common params failed. %#v", subCommonParams)
 			}
 		}
 	}
-
 	return
 }
 
@@ -315,16 +250,6 @@ func ParsePkgApis(
 		}
 	}()
 
-	//hasGoFile, err := file.DirHasExtFile(apiPackageDir, ".go")
-	//if nil != err {
-	//	logrus.Errorf("check dir has ext file failed. error: %s.", err)
-	//	return
-	//}
-	//
-	//if !hasGoFile {
-	//	return
-	//}
-
 	var goModName, goModDir string
 	_, goModName, goModDir = mod.FindGoMod(apiPackageDir)
 	if goModName == "" || goModDir == "" {
@@ -362,8 +287,6 @@ func ParsePkgApis(
 		fmt.Println("Parsing", fileName)
 
 		// package
-		//fileDir := filepath.Dir(fileName)
-
 		var pkgRelAlias string
 		packageName := astFile.Name.Name
 		var pkgExportedPath string

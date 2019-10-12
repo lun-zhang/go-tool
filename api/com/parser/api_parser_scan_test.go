@@ -10,8 +10,7 @@ func TestParseApis(t *testing.T) {
 	p, a, err := ParseApis(
 		"/data/apps/go/guess_activity/biz",
 		true,
-		false,
-		true)
+		false)
 	if err != nil {
 		t.Fatal(err)
 	}
