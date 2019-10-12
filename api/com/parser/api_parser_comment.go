@@ -33,6 +33,7 @@ func ParseApisFromPkgCommentText(
 	apis []*ApiItem,
 	err error,
 ) {
+	defer howLong()()
 	commonApis, err := parseApisFromCommentText(
 		commentText,
 		"@"+BlockTagKeyCommonStart,

@@ -5,7 +5,27 @@ import (
 	"github.com/sirupsen/logrus"
 	"go/ast"
 	"go/types"
+	"runtime"
+	"time"
 )
+
+func Caller(skip int) (name string) {
+	name = "unknown"
+	if pc, _, line, ok := runtime.Caller(skip); ok {
+		name = fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), line)
+	}
+	return
+}
+
+func howLong() func() {
+	now := time.Now()
+	return func() {
+		d := time.Now().Sub(now)
+		if d > time.Millisecond*500 {
+			fmt.Println(Caller(2), d)
+		}
+	}
+}
 
 func ParseBindWrapFuncApi(
 	apiItem *ApiItem,
@@ -13,6 +33,7 @@ func ParseBindWrapFuncApi(
 	typesInfo *types.Info,
 	parseRequestData bool,
 ) (err error) {
+	defer howLong()()
 	apiItem.ApiHandlerFunc = funcDecl.Name.Name
 	apiItem.ApiHandlerFuncType = ApiHandlerFuncTypeGinHandlerFunc
 
