@@ -141,7 +141,7 @@ func checkInAst(params *ast.FieldList) bool {
 	}
 	n := len(params.List)
 
-	if n <= 0 || n > 2 {
+	if n <= 0 { //n > 2在switch判断
 		return false
 	}
 
@@ -158,7 +158,10 @@ func checkInAst(params *ast.FieldList) bool {
 			return false
 		}
 	}
-	if n == 2 {
+	switch n {
+	case 1:
+		return true
+	case 2:
 		req, ok := parseAstTypeToStruct(params.List[1].Type)
 		if !ok {
 			return false
@@ -176,8 +179,9 @@ func checkInAst(params *ast.FieldList) bool {
 			}
 		}
 		return true
+	default: //n > 2
+		return false
 	}
-	return false
 }
 
 func checkOutAst(results *ast.FieldList) bool {
