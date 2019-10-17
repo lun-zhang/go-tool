@@ -102,6 +102,15 @@ func parseReqType(
 
 	for i := 0; i < len(reqType.Fields.List); i++ {
 		field := reqType.Fields.List[i]
+		switch field.Names[0].Name {
+		case ReqFieldNameBody:
+		case ReqFieldNameQuery:
+		case ReqFieldNameHeader:
+		case ReqFieldNameUri:
+		default:
+			//其他成员不需要检查解析
+			continue
+		}
 		expr := field.Type
 
 		//identType := typesInfo.Defs[]
@@ -110,6 +119,15 @@ func parseReqType(
 		apiItem.SetReqData(field.Names[0].Name, iType)
 	}
 }
+
+const (
+	ReqFieldNameBody   = "Body"
+	ReqFieldNameQuery  = "Query"
+	ReqFieldNameUri    = "Uri"
+	ReqFieldNameHeader = "Header"
+	ReqFieldNameMeta   = "Meta"
+	ReqFieldNameC      = "C"
+)
 
 func parseRespType(
 	apiItem *ApiItem,
@@ -169,11 +187,12 @@ func checkInAst(params *ast.FieldList) bool {
 		for i := 0; i < len(req.Fields.List); i++ {
 			field := req.Fields.List[i]
 			switch field.Names[0].Name {
-			case "Body":
-			case "Query":
-			case "Header":
-			case "Uri":
-			case "Meta":
+			case ReqFieldNameBody:
+			case ReqFieldNameQuery:
+			case ReqFieldNameHeader:
+			case ReqFieldNameUri:
+			case ReqFieldNameMeta:
+			case ReqFieldNameC:
 			default: //包含不能识别的类型
 				return false
 			}
