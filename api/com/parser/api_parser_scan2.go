@@ -98,11 +98,16 @@ func parseReqType(
 	if n == 1 {
 		return
 	}
-	reqType := params.List[1].Type.(*ast.StructType)
+	reqType, ok := parseAstTypeToStruct(params.List[1].Type)
+	if !ok {
+		panic("parse expr to struct failed")
+	}
 
-	for i := 0; i < len(reqType.Fields.List); i++ {
-		field := reqType.Fields.List[i]
-		switch field.Names[0].Name {
+	fieldMap := map[string]ast.Expr{}
+	getReqFields(reqType, fieldMap)
+
+	for name, t := range fieldMap {
+		switch name {
 		case ReqFieldNameBody:
 		case ReqFieldNameQuery:
 		case ReqFieldNameHeader:
@@ -111,12 +116,25 @@ func parseReqType(
 			//其他成员不需要检查解析
 			continue
 		}
-		expr := field.Type
+		expr := t
 
 		//identType := typesInfo.Defs[]
 		//typeVar:= identType.(*types.Var)
 		iType := parseType(typesInfo, typesInfo.Types[expr].Type)
-		apiItem.SetReqData(field.Names[0].Name, iType)
+		apiItem.SetReqData(name, iType)
+	}
+}
+
+//将req里的成员提取出来
+func getReqFields(structType *ast.StructType, fieldMap map[string]ast.Expr) {
+	for _, field := range structType.Fields.List {
+		if field.Names != nil {
+			//TODO: 重复则panic
+			fieldMap[field.Names[0].Name] = field.Type
+		} else { //嵌套类型
+			ident := field.Type.(*ast.Ident)
+			getReqFields(ident.Obj.Decl.(*ast.TypeSpec).Type.(*ast.StructType), fieldMap)
+		}
 	}
 }
 
@@ -184,9 +202,10 @@ func checkInAst(params *ast.FieldList) bool {
 		if !ok {
 			return false
 		}
-		for i := 0; i < len(req.Fields.List); i++ {
-			field := req.Fields.List[i]
-			switch field.Names[0].Name {
+		fieldMap := map[string]ast.Expr{}
+		getReqFields(req, fieldMap)
+		for name := range fieldMap {
+			switch name {
 			case ReqFieldNameBody:
 			case ReqFieldNameQuery:
 			case ReqFieldNameHeader:
@@ -239,9 +258,9 @@ func parseAstTypeToStruct(t ast.Expr) (*ast.StructType, bool) {
 		return nil, false
 	}
 	switch t := t.(type) {
-	case *ast.StructType:
+	case *ast.StructType: //struct
 		return t, true
-	case *ast.Ident:
+	case *ast.Ident: //已声明的类型
 		return parseAstTypeToStruct(t.Obj.Decl.(*ast.TypeSpec).Type)
 	default:
 		return nil, false
