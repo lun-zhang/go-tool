@@ -196,12 +196,12 @@ func mergeTypesInfos(info *types.Info, infos ...*types.Info) {
 }
 
 func mergeFromProjectPkg(
+	projectName string,
 	pkg *packages.Package,
 	astFiles *[]*ast.File,
 	astFileNames map[*ast.File]string,
 	typesInfo *types.Info,
 ) {
-	projectName := pkg.PkgPath
 	visPkg := map[string]bool{}
 
 	var dfs func(pkg *packages.Package)
@@ -274,7 +274,7 @@ func ParsePkgApis(
 		InitOrder:  make([]*types.Initializer, 0),
 	}
 
-	mergeFromProjectPkg(pkgs[0], &astFiles, astFileNames, typesInfo)
+	mergeFromProjectPkg(goModName, pkgs[0], &astFiles, astFileNames, typesInfo)
 
 	for _, astFile := range astFiles { // 遍历当前package的语法树
 		fileApis := make([]*ApiItem, 0)
@@ -627,10 +627,26 @@ func parseApiFuncBody(
 	return
 }
 
+/*
+对于递归成员，不解析，例如连表节点结构
+type Node struct {
+	Value int
+    Next *Node
+}
+不解析递归成员Next，简单表示成struct
+*/
+var parsing = map[types.Type]bool{}
+
 func parseType(
 	info *types.Info,
 	t types.Type,
 ) (iType IType) {
+	if parsing[t] == true {
+		return NewStructType()
+	}
+	parsing[t] = true
+	defer func() { parsing[t] = false }()
+
 	iType = NewBasicType("Unsupported")
 
 	switch t.(type) {
@@ -641,6 +657,7 @@ func parseType(
 		iType = parseType(info, t.(*types.Pointer).Elem())
 
 	case *types.Named:
+		fmt.Println(t.String())
 		tNamed := t.(*types.Named)
 		iType = parseType(info, tNamed.Underlying())
 

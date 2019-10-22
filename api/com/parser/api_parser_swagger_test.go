@@ -72,7 +72,7 @@ func TestSaveApisSwaggerSpec(t *testing.T) {
 func TestSaveApisSwaggerSpec2(t *testing.T) {
 	_, a, err := ParseApis(
 		//"/data/apps/go/guess_activity/biz",
-		"/data/apps/go/diwali_lottery",
+		"/data/apps/go/video_buddy_share/manage",
 		true,
 		true)
 	if err != nil {
