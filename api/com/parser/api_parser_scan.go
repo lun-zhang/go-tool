@@ -649,37 +649,36 @@ func parseType(
 
 	iType = NewBasicType("Unsupported")
 
-	switch t.(type) {
+	switch t := t.(type) {
 	case *types.Basic:
-		iType = NewBasicType(t.(*types.Basic).Name())
+		iType = NewBasicType(t.Name())
 
 	case *types.Pointer:
-		iType = parseType(info, t.(*types.Pointer).Elem())
+		iType = parseType(info, t.Elem())
 
 	case *types.Named:
 		fmt.Println(t.String())
-		tNamed := t.(*types.Named)
-		iType = parseType(info, tNamed.Underlying())
+		if t.String() == "zlutils/time.Time" { //TODO: 目前特殊处理，后续用注释来自定义类型
+			iType = NewBasicType("int64")
+		} else {
+			iType = parseType(info, t.Underlying())
 
-		// 如果是structType
-		structType, ok := iType.(*StructType)
-		if ok {
-			structType.Name = tNamed.Obj().Name()
-			iType = structType
+			// 如果是structType
+			structType, ok := iType.(*StructType)
+			if ok {
+				structType.Name = t.Obj().Name()
+				iType = structType
+			}
 		}
-
 	case *types.Struct: // 匿名
 		structType := NewStructType()
-
-		tStructType := t.(*types.Struct)
-
-		typeAstExpr := FindStructAstExprFromInfoTypes(info, tStructType)
+		typeAstExpr := FindStructAstExprFromInfoTypes(info, t)
 		if typeAstExpr == nil { // 找不到expr
 			hasFieldsJsonTag := false
 
-			numFields := tStructType.NumFields()
+			numFields := t.NumFields()
 			for i := 0; i <= numFields; i++ {
-				strTag := tStructType.Tag(i)
+				strTag := t.Tag(i)
 				mTagParts := parseStringTagParts(strTag)
 				if len(mTagParts) == 0 {
 					continue
@@ -698,23 +697,23 @@ func parseType(
 			}
 
 			if hasFieldsJsonTag { // 有导出的jsontag，但是找不到定义的
-				logrus.Warnf("cannot found expr of type: %s", tStructType)
+				logrus.Warnf("cannot found expr of type: %s", t)
 			}
 		}
 
-		numFields := tStructType.NumFields()
+		numFields := t.NumFields()
 		for i := 0; i < numFields; i++ {
 			field := NewField()
 
-			tField := tStructType.Field(i)
-			if !tField.Exported() || parseStringTagParts(tStructType.Tag(i)) == nil {
+			tField := t.Field(i)
+			if !tField.Exported() || parseStringTagParts(t.Tag(i)) == nil {
 				continue
 			}
 
 			if typeAstExpr != nil { // 找到声明
 				astStructType, ok := typeAstExpr.(*ast.StructType)
 				if !ok {
-					logrus.Errorf("parse struct type failed. expr: %#v, type: %#v", typeAstExpr, tStructType)
+					logrus.Errorf("parse struct type failed. expr: %#v, type: %#v", typeAstExpr, t)
 					return
 				}
 
@@ -755,7 +754,7 @@ func parseType(
 				}
 			} else {
 				// tags
-				field.Tags = parseStringTagParts(tStructType.Tag(i))
+				field.Tags = parseStringTagParts(t.Tag(i))
 
 				// definition
 				field.Name = tField.Name()
@@ -775,8 +774,7 @@ func parseType(
 
 	case *types.Slice:
 		arrType := NewArrayType()
-		typeSlice := t.(*types.Slice)
-		eltType := parseType(info, typeSlice.Elem())
+		eltType := parseType(info, t.Elem())
 		arrType.EltSpec = eltType
 		arrType.EltName = eltType.TypeName()
 		arrType.Name = fmt.Sprintf("[]%s", eltType.TypeName())
@@ -785,9 +783,8 @@ func parseType(
 
 	case *types.Array:
 		arrType := NewArrayType()
-		typeArr := t.(*types.Array)
-		eltType := parseType(info, typeArr.Elem())
-		arrType.Len = typeArr.Len()
+		eltType := parseType(info, t.Elem())
+		arrType.Len = t.Len()
 		arrType.EltSpec = eltType
 		arrType.EltName = eltType.TypeName()
 		arrType.Name = fmt.Sprintf("[%d]%s", arrType.Len, eltType.TypeName())
@@ -796,9 +793,8 @@ func parseType(
 
 	case *types.Map:
 		mapType := NewMapType()
-		tMap := t.(*types.Map)
-		mapType.ValueSpec = parseType(info, tMap.Elem())
-		mapType.KeySpec = parseType(info, tMap.Key())
+		mapType.ValueSpec = parseType(info, t.Elem())
+		mapType.KeySpec = parseType(info, t.Key())
 		mapType.Name = fmt.Sprintf("map[%s]%s", mapType.KeySpec.TypeName(), mapType.ValueSpec.TypeName())
 
 		iType = mapType
