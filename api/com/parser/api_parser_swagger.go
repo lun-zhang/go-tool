@@ -105,7 +105,7 @@ func (m *SwaggerSpec) parseApi(path string, api *ApiItem) (err error) {
 	// query data
 	if api.QueryData != nil {
 		for _, queryField := range api.QueryData.Fields {
-			operation.Parameters = append(operation.Parameters, *FieldBasicParameter("query", queryField))
+			operation.Parameters = append(operation.Parameters, *QueryFieldBasicParameter("query", queryField))
 		}
 	}
 
@@ -274,7 +274,7 @@ func (m *SwaggerSpec) Output() (output []byte, err error) {
 	return
 }
 
-// query、path基础类型参数
+// path基础类型参数
 func FieldBasicParameter(in string, field *Field) (parameter *spec.Parameter) {
 	parameter = &spec.Parameter{}
 	parameter.Name = field.TagJson()
@@ -291,6 +291,25 @@ func FieldBasicParameter(in string, field *Field) (parameter *spec.Parameter) {
 	}
 
 	return
+}
+
+//query类型，id=1&id=2这样的参数数组需要处理
+func QueryFieldBasicParameter(in string, field *Field) (parameter *spec.Parameter) {
+	switch t := field.TypeSpec.(type) {
+	case *ArrayType:
+		parameter = &spec.Parameter{}
+		parameter.Name = field.TagJson()
+		parameter.In = in
+		parameter.Description = field.Description
+		parameter.Required = field.Required()
+
+		parameter.Type = TypeClassArrayType
+		parameter.Items = &spec.Items{}
+		parameter.Items.Type = BasicTypeToSwaggerSchemaType(t.EltSpec.TypeName())
+		return
+	default:
+		return FieldBasicParameter(in, field)
+	}
 }
 
 // transform basic type to swagger schema type
