@@ -706,6 +706,21 @@ func parseType(
 			field := NewField()
 
 			tField := t.Field(i)
+
+			if tField.Anonymous() {
+				fieldType := parseType(info, tField.Type())
+				fieldStruct, ok := fieldType.(*StructType)
+				if !ok {
+					panic(fmt.Errorf("anonymous field:%s must be struct", tField))
+				}
+				//匿名结构的成员取出来平铺
+				if err := structType.AddFields(fieldStruct.Fields...); err != nil {
+					logrus.Warnf("parse struct type add field failed. error: %s.", err)
+					return
+				}
+				continue
+			}
+			//匿名结构即使不导出，也可以被json解析出来
 			if !tField.Exported() || parseStringTagParts(t.Tag(i)) == nil {
 				continue
 			}
@@ -741,33 +756,21 @@ func parseType(
 
 			}
 
-			if tField.Anonymous() {
-				fieldType := parseType(info, tField.Type())
-				fieldStruct, ok := fieldType.(*StructType)
-				if !ok {
-					panic(fmt.Errorf("anonymous field:%s must be struct", tField))
-				}
-				//匿名结构的成员取出来平铺
-				if err := structType.AddFields(fieldStruct.Fields...); err != nil {
-					logrus.Warnf("parse struct type add field failed. error: %s.", err)
-					return
-				}
-			} else {
-				// tags
-				field.Tags = parseStringTagParts(t.Tag(i))
+			// tags
+			field.Tags = parseStringTagParts(t.Tag(i))
 
-				// definition
-				field.Name = tField.Name()
-				fieldType := parseType(info, tField.Type())
-				field.TypeName = fieldType.TypeName()
-				field.TypeSpec = fieldType
+			// definition
+			field.Name = tField.Name()
+			fieldType := parseType(info, tField.Type())
+			field.TypeName = fieldType.TypeName()
+			field.TypeSpec = fieldType
 
-				err := structType.AddFields(field)
-				if nil != err {
-					logrus.Warnf("parse struct type add field failed. error: %s.", err)
-					return
-				}
+			err := structType.AddFields(field)
+			if nil != err {
+				logrus.Warnf("parse struct type add field failed. error: %s.", err)
+				return
 			}
+
 		}
 
 		iType = structType
