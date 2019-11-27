@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"path/filepath"
-	"runtime/debug"
 	"sort"
 
 	"github.com/haozzzzzzzz/go-rapid-development/utils/uerrors"
@@ -21,6 +20,8 @@ import (
 	"github.com/go-playground/validator"
 	"github.com/haozzzzzzzz/go-rapid-development/api/request"
 	"github.com/sirupsen/logrus"
+	"reflect"
+	"runtime/debug"
 	"time"
 )
 
@@ -247,7 +248,8 @@ func ParsePkgApis(
 	apis = make([]*ApiItem, 0)
 	defer func() {
 		if iRec := recover(); iRec != nil {
-			logrus.Errorf("panic %s. api_dir: %s", iRec, apiPackageDir)
+			err = fmt.Errorf("panic %s. api_dir: %s", iRec, apiPackageDir)
+			logrus.WithError(err).Error()
 			debug.PrintStack()
 		}
 	}()
@@ -678,20 +680,13 @@ func parseType(
 
 			numFields := t.NumFields()
 			for i := 0; i <= numFields; i++ {
-				strTag := t.Tag(i)
-				mTagParts := parseStringTagParts(strTag)
+				mTagParts := parseStringTagParts(t.Tag(i))
 				if len(mTagParts) == 0 {
 					continue
 				}
 
-				for key, _ := range mTagParts {
-					if key == "json" {
-						hasFieldsJsonTag = true
-						break
-					}
-				}
-
-				if hasFieldsJsonTag {
+				if _, ok := mTagParts["json"]; ok {
+					hasFieldsJsonTag = true
 					break
 				}
 			}
@@ -813,24 +808,25 @@ func parseType(
 	return
 }
 
+//现在只用得到这两个
+var tagKeys = []string{
+	"json",
+	"binding",
+}
+
+//需要能解析 binding:"required,oneof=1 2 3"
 func parseStringTagParts(strTag string) (mParts map[string]string) {
 	mParts = make(map[string]string, 0)
-	tagValue := strings.Replace(strTag, "`", "", -1)
-	strPairs := strings.Split(tagValue, " ")
-	for _, pair := range strPairs {
-		pair = strings.TrimSpace(pair)
-		if pair == "" {
-			continue
-		}
 
-		tagPair := strings.Split(pair, ":")
-		if tagPair[0] == "json" && tagPair[1] == `"-"` {
-			return nil
+	tagValue := strings.Replace(strTag, "`", "", -1)
+	tag := reflect.StructTag(tagValue)
+
+	for _, k := range tagKeys {
+		if v, ok := tag.Lookup(k); ok {
+			mParts[k] = v
 		}
-		mParts[tagPair[0]] = strings.Replace(tagPair[1], "\"", "", -1)
 	}
 	return
-
 }
 
 func convertExpr(expr ast.Expr) (newExpr ast.Expr) {
