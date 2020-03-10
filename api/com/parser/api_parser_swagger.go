@@ -130,7 +130,7 @@ func (m *SwaggerSpec) parseApi(path string, api *ApiItem) (err error) {
 		if api.ApiHandlerFuncType == ApiHandlerFuncTypeGinbuilderHandleFunc {
 			successResponse.Schema = ITypeToSwaggerSchema(SuccessResponseStructType(api.RespData))
 		} else {
-			successResponse.Schema = ITypeToSwaggerSchema(api.RespData)
+			successResponse.Schema = ITypeToSwaggerSchema(SuccessResponseStructType(api.RespData))
 		}
 
 	}
