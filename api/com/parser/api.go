@@ -436,9 +436,9 @@ func (m *ApiItem) MergeInfoFomCommentTags(tags *CommentTags) {
 
 // 成功返回结构
 //type Response struct {
-//	ReturnCode uint32      `json:"ret"`
-//	Message    string      `json:"msg"`
-//	Data       interface{} `json:"data"`
+//	ReturnCode uint32      `json:"ret"`//一定有
+//	Message    string      `json:"msg"`//一定有
+//	Data       interface{} `json:"data"`//没有响应结构就没有data
 //}
 func SuccessResponseStructType(
 	respData IType,
@@ -465,7 +465,9 @@ func SuccessResponseStructType(
 			},
 			TypeSpec: NewBasicType("string"),
 		},
-		{
+	}
+	if respData != nil {
+		successResp.Fields = append(successResp.Fields, &Field{
 			Name:        "Data",
 			TypeName:    respData.TypeName(),
 			Description: "result data",
@@ -473,7 +475,7 @@ func SuccessResponseStructType(
 				"json": "data",
 			},
 			TypeSpec: respData,
-		},
+		})
 	}
 	return
 }
