@@ -442,20 +442,34 @@ func (m *ApiItem) MergeInfoFomCommentTags(tags *CommentTags) {
 //}
 func SuccessResponseStructType(
 	respData IType,
+	responseType int,
 ) (successResp *StructType) {
 	successResp = NewStructType()
 	successResp.Name = "SuccessResponse"
 	successResp.Description = "api success response"
-	successResp.Fields = []*Field{
-		{
+
+	respCode := &Field{
+		Name:        "ReturnCode",
+		TypeName:    "uint32",
+		Description: "result code",
+		Tags: map[string]string{
+			"json": "ret",
+		},
+		TypeSpec: NewBasicType("uint32"),
+	}
+	if responseType == ResponseCode {
+		respCode = &Field{
 			Name:        "ReturnCode",
-			TypeName:    "uint32",
+			TypeName:    "int",
 			Description: "result code",
 			Tags: map[string]string{
-				"json": "ret",
+				"json": "code",
 			},
-			TypeSpec: NewBasicType("uint32"),
-		},
+			TypeSpec: NewBasicType("int")}
+	}
+
+	successResp.Fields = []*Field{
+		respCode,
 		{
 			Name:        "Message",
 			TypeName:    "string",

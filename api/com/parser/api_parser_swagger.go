@@ -21,9 +21,15 @@ import (
 )
 
 type SwaggerSpec struct {
-	apis    []*ApiItem
-	Swagger *lswagger.Swagger
+	apis         []*ApiItem
+	Swagger      *lswagger.Swagger
+	ResponseType int //响应结构类型
 }
+
+const (
+	ResponseRet  = iota //ret msg data
+	ResponseCode        //code msg data
+)
 
 func NewSwaggerSpec() (swgSpec *SwaggerSpec) {
 	swgSpec = &SwaggerSpec{
@@ -124,7 +130,7 @@ func (m *SwaggerSpec) parseApi(path string, api *ApiItem) (err error) {
 	// response data
 	successResponse := spec.Response{}
 	successResponse.Description = "success"
-	successResponse.Schema = ITypeToSwaggerSchema(SuccessResponseStructType(api.RespData))
+	successResponse.Schema = ITypeToSwaggerSchema(SuccessResponseStructType(api.RespData, m.ResponseType))
 
 	operation.Responses = &spec.Responses{
 		ResponsesProps: spec.ResponsesProps{
